@@ -415,10 +415,11 @@
   },
   "libraries": {
     "pinned_footprint_libs": [
-      "SMAQ_Footprints"
+      "SMAQ_Footprints",
+      "SMAQ_FOOTPRINTS"
     ],
     "pinned_symbol_libs": [
-      "SMAQ_Symbols"
+      "SMAQ_SYMBOLS"
     ]
   },
   "meta": {
