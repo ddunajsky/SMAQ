@@ -7900,7 +7900,7 @@
     (property "Value" "LED" (at 222.25 177.8 0)
       (effects (font (size 1.27 1.27)) (justify left) hide)
     )
-    (property "Footprint" "" (at 227.33 175.26 90)
+    (property "Footprint" "SMAQ_FOOTPRINTS:LED_LTST-C194K-0603_1P6X0P8X0P3_LTO" (at 227.33 175.26 90)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Datasheet" "~" (at 227.33 175.26 90)
