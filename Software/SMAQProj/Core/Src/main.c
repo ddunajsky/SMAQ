@@ -86,7 +86,7 @@ static uint32_t Hum;  // Humidity readings from SCD-40-2
 static uint32_t Carb; // C02 readings from SCD-40-2
 static uint32_t Pm;  // PM 2.5 readings from SNJGAC5
 static double aqi = 0;
-static char *str;
+//static char *str;
 int main(void){
 
 
@@ -378,15 +378,14 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
 
 	if (ev == MG_EV_HTTP_MSG) {
 		struct mg_http_message *hm = (struct mg_http_message *) ev_data;
-//		if (mg_http_match_uri(hm, "/api/dispAQI")){
-//			mg_http_reply(c, 200, "Content-Type: application/json\r\n",
-//					"{%m:%f,%m:%m}\n", MG_ESC("aqi"), aqi,
-//									   MG_ESC("health_level"), str);
-//		}
+		if (mg_http_match_uri(hm, "/api/dispAQI")){
+			mg_http_reply(c, 200, "Content-Type: application/json\r\n",
+					"{%m:%f}\n", MG_ESC("aqi"), aqi);
+		}
 		if(mg_http_match_uri(hm, "/api/AQI")){
 			struct mg_str json = hm -> body;
 			mg_json_get_num(json, "$.aqi", &aqi);
-			str = mg_json_get_str(json, "&.health_level");
+//			str = mg_json_get_str(json, "&.health_level");
 			mg_http_reply(c, 200, NULL, NULL);
 		}
 		if(mg_http_match_uri(hm, "/api/sensors")){
