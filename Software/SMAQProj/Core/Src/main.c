@@ -68,7 +68,12 @@ const osThreadAttr_t Server_attributes = {
   .stack_size = 2048 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
-
+osThreadId_t SCDHandle;
+const osThreadAttr_t SCD_attributes = {
+  .name = "Sensor 1",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 
 
 /* Private function prototypes -----------------------------------------------*/
@@ -80,6 +85,7 @@ static void MX_USART3_UART_Init(void);
 static void MX_RNG_Init(void);
 void server(void *argument);
 void blinker(void *argument);
+void sensor1(void *argument);
 
 static uint32_t Temp;  //temperature readings from SCD-40-2
 static uint32_t Hum;  // Humidity readings from SCD-40-2
@@ -106,6 +112,7 @@ int main(void){
 
     ServerHandle = osThreadNew(server, NULL, &Server_attributes);
     BlinkerHandle = osThreadNew(blinker, NULL, &Blinker_attributes);
+    SCDHandle = osThreadNew(sensor1, NULL, &SCD_attributes);
 
     osKernelStart();
 
@@ -356,8 +363,15 @@ static void timer_fn(void *arg) {
            ifp->ndrop, ifp->nerr));
 }
 
-void blinker(void *argument)
-{
+void sensor1(void *argument) {
+	for (;;) {
+		Temp = 15;
+	}
+	(void) argument;
+
+}
+
+void blinker(void *argument) {
 	for (;;) {
 	    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);  // Blink On-board blue LED
 	    osDelay((osKernelGetTickFreq() * BLINK_PERIOD_MS) / 1000U);
