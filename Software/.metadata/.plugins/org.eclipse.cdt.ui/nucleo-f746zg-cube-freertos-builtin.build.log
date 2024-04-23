@@ -1,0 +1,10 @@
+14:00:58 **** Incremental Build of configuration Debug for project nucleo-f746zg-cube-freertos-builtin ****
+make -j24 all 
+arm-none-eabi-size   nucleo-f746zg-cube-freertos-builtin.elf 
+   text	   data	    bss	    dec	    hex	filename
+ 130080	   1096	  83936	 215112	  34848	nucleo-f746zg-cube-freertos-builtin.elf
+Finished building: default.size.stdout
+ 
+
+14:00:58 Build Finished. 0 errors, 0 warnings. (took 176ms)
+
