@@ -46,6 +46,12 @@ ETH_DMADescTypeDef DMATxDscrTab[ETH_TX_DESC_CNT] __attribute__((section(".TxDecr
 #define HTTPS_URL "https://0.0.0.0:8443"
 #define BLINK_PERIOD_MS 1000  // LED blinking period in millis
 
+#define SCD40_ADDR 0x62
+#define SCD40_READ (SCD40_ADDR << 1)
+#define SCD40_WRITE ((SCD40_ADDR << 1) | 0x01)
+
+
+
 ETH_TxPacketConfig TxConfig;
 
 ETH_HandleTypeDef heth;
@@ -53,6 +59,8 @@ ETH_HandleTypeDef heth;
 RNG_HandleTypeDef hrng;
 
 UART_HandleTypeDef huart3;
+
+I2C_HandleTypeDef hi2c1;
 
 /* Definitions for Server */
 osThreadId_t BlinkerHandle;
@@ -71,7 +79,7 @@ const osThreadAttr_t Server_attributes = {
 osThreadId_t SCDHandle;
 const osThreadAttr_t SCD_attributes = {
   .name = "Sensor 1",
-  .stack_size = 128 * 4,
+  .stack_size = 4096 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 
@@ -81,6 +89,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_ETH_Init(void);
 static void MX_USART3_UART_Init(void);
+static void MX_I2C1_Init(void);
 //static void MX_USB_OTG_FS_PCD_Init(void);
 static void MX_RNG_Init(void);
 void server(void *argument);
@@ -107,6 +116,7 @@ int main(void){
     MX_ETH_Init();
     MX_RNG_Init();
     MX_USART3_UART_Init();
+    MX_I2C1_Init();
 
     osKernelInitialize();
 
@@ -174,6 +184,50 @@ void SystemClock_Config(void)
 	}
 
 /**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.Timing = 0x6000030D;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Analogue filter
+  */
+  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c1, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Digital filter
+  */
+  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c1, 0) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/**
   * @brief ETH Initialization Function
   * @param None
   * @retval None
@@ -216,7 +270,6 @@ static void MX_RNG_Init(void)
   {
     Error_Handler();
   }
-
 
 }
 
@@ -364,8 +417,20 @@ static void timer_fn(void *arg) {
 }
 
 void sensor1(void *argument) {
-	for (;;) {
+	HAL_StatusTypeDef status;
+	uint8_t read_buf[9];
+
+	for(;;){
 		Temp = 15;
+		 //start_periodic_measurments
+		status = HAL_I2C_Mem_Write(&hi2c1, SCD40_ADDR, (uint16_t) 0x21b1, 2, 0, 0, 5000);
+
+		// Read Measurement
+		status = HAL_I2C_Mem_Read(&hi2c1, SCD40_ADDR, (uint16_t) 0xec05, (uint16_t) 2, read_buf,(uint16_t) 9, 500000);
+
+		// stop_periodic_measurments
+		status = HAL_I2C_Mem_Read(&hi2c1, SCD40_ADDR, (uint16_t) 0x3f86, 2, 0,0, 5000);
+		MG_INFO(("status: %d", status));
 	}
 	(void) argument;
 
