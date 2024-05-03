@@ -8,8 +8,6 @@
 ../Core/Src/main.c:395:6:HAL_TIM_PeriodElapsedCallback	2
 ../Core/Src/main.c:402:6:mg_random	3
 ../Core/Src/main.c:411:13:timer_fn	2
-../Core/Src/main.c:419:6:sensor1	2
-../Core/Src/main.c:436:6:blinker	1
-../Core/Src/main.c:452:13:fn	6
-../Core/Src/main.c:484:6:server	4
-../Core/Src/main.c:523:6:Error_Handler	1
+../Core/Src/main.c:419:6:sensor1	3
+../Core/Src/main.c:456:13:fn	6
+../Core/Src/main.c:527:6:Error_Handler	1

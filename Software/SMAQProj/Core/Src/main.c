@@ -63,23 +63,23 @@ UART_HandleTypeDef huart3;
 I2C_HandleTypeDef hi2c1;
 
 /* Definitions for Server */
-osThreadId_t BlinkerHandle;
-const osThreadAttr_t Blinker_attributes = {
-  .name = "Blinker",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
-};
-
-osThreadId_t ServerHandle;
-const osThreadAttr_t Server_attributes = {
-  .name = "Server",
-  .stack_size = 2048 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
-};
+//osThreadId_t BlinkerHandle;
+//const osThreadAttr_t Blinker_attributes = {
+//  .name = "Blinker",
+//  .stack_size = 128 * 4,
+//  .priority = (osPriority_t) osPriorityNormal,
+//};
+//
+//osThreadId_t ServerHandle;
+//const osThreadAttr_t Server_attributes = {
+//  .name = "Server",
+//  .stack_size = 2048 * 4,
+//  .priority = (osPriority_t) osPriorityNormal,
+//};
 osThreadId_t SCDHandle;
 const osThreadAttr_t SCD_attributes = {
   .name = "Sensor 1",
-  .stack_size = 4096 * 4,
+  .stack_size = 1024 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 
@@ -92,8 +92,8 @@ static void MX_USART3_UART_Init(void);
 static void MX_I2C1_Init(void);
 //static void MX_USB_OTG_FS_PCD_Init(void);
 static void MX_RNG_Init(void);
-void server(void *argument);
-void blinker(void *argument);
+//void server(void *argument);
+//void blinker(void *argument);
 void sensor1(void *argument);
 
 static uint32_t Temp;  //temperature readings from SCD-40-2
@@ -120,8 +120,8 @@ int main(void){
 
     osKernelInitialize();
 
-    ServerHandle = osThreadNew(server, NULL, &Server_attributes);
-    BlinkerHandle = osThreadNew(blinker, NULL, &Blinker_attributes);
+//    ServerHandle = osThreadNew(server, NULL, &Server_attributes);
+//    BlinkerHandle = osThreadNew(blinker, NULL, &Blinker_attributes);
     SCDHandle = osThreadNew(sensor1, NULL, &SCD_attributes);
 
     osKernelStart();
@@ -199,7 +199,7 @@ static void MX_I2C1_Init(void)
 
   /* USER CODE END I2C1_Init 1 */
   hi2c1.Instance = I2C1;
-  hi2c1.Init.Timing = 0x6000030D;
+  hi2c1.Init.Timing = 0x600030D;
   hi2c1.Init.OwnAddress1 = 0;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -419,31 +419,32 @@ static void timer_fn(void *arg) {
 void sensor1(void *argument) {
 	HAL_StatusTypeDef status;
 	uint8_t read_buf[9];
+	MG_INFO(("start"));
+
+
+	status = HAL_I2C_Mem_Write(&hi2c1, SCD40_ADDR << 1, 0x21b1, 2, 0, 0, 500);
+
+
 
 	for(;;){
+		HAL_Delay(5000);
 		Temp = 15;
-		 //start_periodic_measurments
-		status = HAL_I2C_Mem_Write(&hi2c1, SCD40_ADDR, (uint16_t) 0x21b1, 2, 0, 0, 5000);
-
-		// Read Measurement
-		status = HAL_I2C_Mem_Read(&hi2c1, SCD40_ADDR, (uint16_t) 0xec05, (uint16_t) 2, read_buf,(uint16_t) 9, 500000);
-
-		// stop_periodic_measurments
-		status = HAL_I2C_Mem_Read(&hi2c1, SCD40_ADDR, (uint16_t) 0x3f86, 2, 0,0, 5000);
+		status = HAL_I2C_Master_Receive(&hi2c1, SCD40_ADDR << 1, read_buf, 9, 500);
 		MG_INFO(("status: %d", status));
 	}
+	status = HAL_I2C_Mem_Write(&hi2c1, SCD40_ADDR, (uint16_t) 0x3f86, 2, 0,0, 500);
 	(void) argument;
 
 }
 
-void blinker(void *argument) {
-	for (;;) {
-	    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);  // Blink On-board blue LED
-	    osDelay((osKernelGetTickFreq() * BLINK_PERIOD_MS) / 1000U);
-
-	}
-	(void) argument;
-}
+//void blinker(void *argument) {
+//	for (;;) {
+//	    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);  // Blink On-board blue LED
+//	    osDelay((osKernelGetTickFreq() * BLINK_PERIOD_MS) / 1000U);
+//
+//	}
+//	(void) argument;
+//}
 
 /***********************************************
  * Event Handler for HTTP connection:		   *
@@ -484,38 +485,38 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
 	  (void) fn_data;
 }
 
-void server(void *argument)
-{
-	Temp = 20;
-	Hum = 30;
-	Carb = 800;
-	Pm = 12;
-
-	struct mg_mgr mgr;        // Initialise Mongoose event manager
-	mg_mgr_init(&mgr);        // and attach it to the interface
-	mg_log_set(MG_LL_DEBUG);  // Set log level
-
-		// Initialise Mongoose network stack
-	  struct mg_tcpip_driver_stm32_data driver_data = {.mdc_cr = 4};
-	  struct mg_tcpip_if mif = {.mac = GENERATE_LOCALLY_ADMINISTERED_MAC(),
-		                          .driver = &mg_tcpip_driver_stm32,
-		                          .driver_data = &driver_data};
-		mg_tcpip_init(&mgr, &mif);
-		mg_timer_add(&mgr, BLINK_PERIOD_MS, MG_TIMER_REPEAT, timer_fn, &mif);
-		MG_INFO(("MAC: %M. Waiting for IP...", mg_print_mac, mif.mac));
-		while (mif.state != MG_TCPIP_STATE_READY) {
-		    mg_mgr_poll(&mgr, 0);
-		}
-
-		MG_INFO(("Initialising application..."));
-		mg_http_listen(&mgr, HTTP_URL, fn, &mgr);
-		mg_http_listen(&mgr, HTTPS_URL, fn, &mgr);
-		for (;;) {
-			mg_mgr_poll(&mgr, 1);
-		}
-		mg_mgr_free(&mgr);
-	   (void) argument;
-}
+//void server(void *argument)
+//{
+//	Temp = 20;
+//	Hum = 30;
+//	Carb = 800;
+//	Pm = 12;
+//
+//	struct mg_mgr mgr;        // Initialise Mongoose event manager
+//	mg_mgr_init(&mgr);        // and attach it to the interface
+//	mg_log_set(MG_LL_DEBUG);  // Set log level
+//
+//		// Initialise Mongoose network stack
+//	  struct mg_tcpip_driver_stm32_data driver_data = {.mdc_cr = 4};
+//	  struct mg_tcpip_if mif = {.mac = GENERATE_LOCALLY_ADMINISTERED_MAC(),
+//		                          .driver = &mg_tcpip_driver_stm32,
+//		                          .driver_data = &driver_data};
+//		mg_tcpip_init(&mgr, &mif);
+//		mg_timer_add(&mgr, BLINK_PERIOD_MS, MG_TIMER_REPEAT, timer_fn, &mif);
+//		MG_INFO(("MAC: %M. Waiting for IP...", mg_print_mac, mif.mac));
+//		while (mif.state != MG_TCPIP_STATE_READY) {
+//		    mg_mgr_poll(&mgr, 0);
+//		}
+//
+//		MG_INFO(("Initialising application..."));
+//		mg_http_listen(&mgr, HTTP_URL, fn, &mgr);
+//		mg_http_listen(&mgr, HTTPS_URL, fn, &mgr);
+//		for (;;) {
+//			mg_mgr_poll(&mgr, 1);
+//		}
+//		mg_mgr_free(&mgr);
+//	   (void) argument;
+//}
 
 
 
