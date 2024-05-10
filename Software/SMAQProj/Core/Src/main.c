@@ -70,12 +70,12 @@ I2C_HandleTypeDef hi2c1;
 //  .priority = (osPriority_t) osPriorityNormal,
 //};
 //
-//osThreadId_t ServerHandle;
-//const osThreadAttr_t Server_attributes = {
-//  .name = "Server",
-//  .stack_size = 2048 * 4,
-//  .priority = (osPriority_t) osPriorityNormal,
-//};
+osThreadId_t ServerHandle;
+const osThreadAttr_t Server_attributes = {
+  .name = "Server",
+  .stack_size = 2048 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 osThreadId_t SCDHandle;
 const osThreadAttr_t SCD_attributes = {
   .name = "Sensor 1",
@@ -92,12 +92,12 @@ static void MX_USART3_UART_Init(void);
 static void MX_I2C1_Init(void);
 //static void MX_USB_OTG_FS_PCD_Init(void);
 static void MX_RNG_Init(void);
-//void server(void *argument);
+void server(void *argument);
 //void blinker(void *argument);
 void sensor1(void *argument);
 
-static uint32_t Temp;  //temperature readings from SCD-40-2
-static uint32_t Hum;  // Humidity readings from SCD-40-2
+static double Temp;  //temperature readings from SCD-40-2
+static double Hum;  // Humidity readings from SCD-40-2
 static uint32_t Carb; // C02 readings from SCD-40-2
 static uint32_t Pm;  // PM 2.5 readings from SNJGAC5
 static double aqi = 0;
@@ -120,9 +120,9 @@ int main(void){
 
     osKernelInitialize();
 
-//    ServerHandle = osThreadNew(server, NULL, &Server_attributes);
+   ServerHandle = osThreadNew(server, NULL, &Server_attributes);
 //    BlinkerHandle = osThreadNew(blinker, NULL, &Blinker_attributes);
-    SCDHandle = osThreadNew(sensor1, NULL, &SCD_attributes);
+   SCDHandle = osThreadNew(sensor1, NULL, &SCD_attributes);
 
     osKernelStart();
 
@@ -416,26 +416,47 @@ static void timer_fn(void *arg) {
            ifp->ndrop, ifp->nerr));
 }
 
+static double calcTemp(uint8_t highByte, uint8_t lowByte) {
+	uint32_t word = (highByte << 8) | (lowByte);
+	double result = -45 + (175 * (((double)word)/(65535)));
+	return result;
+}
+
+static double calcHum(uint8_t highByte, uint8_t lowByte) {
+	uint32_t word = (highByte << 8) | (lowByte);
+	double result = 100 * ((double)word/65535);
+	return result;
+}
+
+
+
 void sensor1(void *argument) {
 	HAL_StatusTypeDef status;
 	uint8_t read_buf[9];
 	MG_INFO(("start"));
 
+	uint8_t data_buf[] = {0x21, 0xb1};
+	uint32_t x;
 
-	status = HAL_I2C_Mem_Write(&hi2c1, SCD40_ADDR << 1, 0x21b1, 2, 0, 0, 500);
-
-
-
+	status = HAL_I2C_Master_Transmit(&hi2c1, SCD40_ADDR << 1, data_buf, sizeof(data_buf), 500);
 	for(;;){
+		//status = HAL_I2C_Mem_Write(&hi2c1, SCD40_ADDR << 1, 0x21b1, 2, 0, 0, 5000);
 		HAL_Delay(5000);
-		Temp = 15;
-		status = HAL_I2C_Master_Receive(&hi2c1, SCD40_ADDR << 1, read_buf, 9, 500);
+		//status = HAL_I2C_Mem_Write(&hi2c1, SCD40_ADDR << 1, 0xec05, 2, 0, 0, 5000);
+		//status = HAL_I2C_Master_Receive(&hi2c1, SCD40_ADDR << 1, read_buf, 9, 500);
+
+		status = HAL_I2C_Mem_Read(&hi2c1, SCD40_ADDR << 1, 0xec05, 2, read_buf, sizeof(read_buf), 5000);
+		Carb = (read_buf[0] << 8) | (read_buf[1]);
+		Temp = calcTemp(read_buf[3], read_buf[4]);
+		Hum = calcHum(read_buf[6], read_buf[7]);
 		MG_INFO(("status: %d", status));
 	}
 	status = HAL_I2C_Mem_Write(&hi2c1, SCD40_ADDR, (uint16_t) 0x3f86, 2, 0,0, 500);
 	(void) argument;
 
 }
+
+
 
 //void blinker(void *argument) {
 //	for (;;) {
@@ -470,7 +491,7 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
 		}
 		if(mg_http_match_uri(hm, "/api/sensors")){
 			mg_http_reply(c, 200, "Content-Type: application/json\r\n",
-					"{%m:%u,%m:%u,%m:%u,%m:%u}\n", MG_ESC("temperature"), Temp,
+					"{%m:%.2f,%m:%.2f,%m:%u,%m:%u}\n", MG_ESC("temperature"), Temp,
 												   MG_ESC("humidity"), Hum,
 												   MG_ESC("pm25"), Pm,
 												   MG_ESC("co2"), Carb);
@@ -485,38 +506,35 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
 	  (void) fn_data;
 }
 
-//void server(void *argument)
-//{
-//	Temp = 20;
-//	Hum = 30;
-//	Carb = 800;
-//	Pm = 12;
-//
-//	struct mg_mgr mgr;        // Initialise Mongoose event manager
-//	mg_mgr_init(&mgr);        // and attach it to the interface
-//	mg_log_set(MG_LL_DEBUG);  // Set log level
-//
-//		// Initialise Mongoose network stack
-//	  struct mg_tcpip_driver_stm32_data driver_data = {.mdc_cr = 4};
-//	  struct mg_tcpip_if mif = {.mac = GENERATE_LOCALLY_ADMINISTERED_MAC(),
-//		                          .driver = &mg_tcpip_driver_stm32,
-//		                          .driver_data = &driver_data};
-//		mg_tcpip_init(&mgr, &mif);
-//		mg_timer_add(&mgr, BLINK_PERIOD_MS, MG_TIMER_REPEAT, timer_fn, &mif);
-//		MG_INFO(("MAC: %M. Waiting for IP...", mg_print_mac, mif.mac));
-//		while (mif.state != MG_TCPIP_STATE_READY) {
-//		    mg_mgr_poll(&mgr, 0);
-//		}
-//
-//		MG_INFO(("Initialising application..."));
-//		mg_http_listen(&mgr, HTTP_URL, fn, &mgr);
-//		mg_http_listen(&mgr, HTTPS_URL, fn, &mgr);
-//		for (;;) {
-//			mg_mgr_poll(&mgr, 1);
-//		}
-//		mg_mgr_free(&mgr);
-//	   (void) argument;
-//}
+void server(void *argument)
+{
+	Pm = 2;
+
+	struct mg_mgr mgr;        // Initialise Mongoose event manager
+	mg_mgr_init(&mgr);        // and attach it to the interface
+	mg_log_set(MG_LL_DEBUG);  // Set log level
+
+		// Initialise Mongoose network stack
+	  struct mg_tcpip_driver_stm32_data driver_data = {.mdc_cr = 4};
+	  struct mg_tcpip_if mif = {.mac = GENERATE_LOCALLY_ADMINISTERED_MAC(),
+		                          .driver = &mg_tcpip_driver_stm32,
+		                          .driver_data = &driver_data};
+		mg_tcpip_init(&mgr, &mif);
+		mg_timer_add(&mgr, BLINK_PERIOD_MS, MG_TIMER_REPEAT, timer_fn, &mif);
+		MG_INFO(("MAC: %M. Waiting for IP...", mg_print_mac, mif.mac));
+		while (mif.state != MG_TCPIP_STATE_READY) {
+		    mg_mgr_poll(&mgr, 0);
+		}
+
+		MG_INFO(("Initialising application..."));
+		mg_http_listen(&mgr, HTTP_URL, fn, &mgr);
+		mg_http_listen(&mgr, HTTPS_URL, fn, &mgr);
+		for (;;) {
+			mg_mgr_poll(&mgr, 1);
+		}
+		mg_mgr_free(&mgr);
+	   (void) argument;
+}
 
 
 
