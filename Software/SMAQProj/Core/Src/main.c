@@ -62,14 +62,6 @@ UART_HandleTypeDef huart3;
 
 I2C_HandleTypeDef hi2c1;
 
-/* Definitions for Server */
-//osThreadId_t BlinkerHandle;
-//const osThreadAttr_t Blinker_attributes = {
-//  .name = "Blinker",
-//  .stack_size = 128 * 4,
-//  .priority = (osPriority_t) osPriorityNormal,
-//};
-//
 osThreadId_t ServerHandle;
 const osThreadAttr_t Server_attributes = {
   .name = "Server",
@@ -121,14 +113,12 @@ int main(void){
     osKernelInitialize();
 
    ServerHandle = osThreadNew(server, NULL, &Server_attributes);
-//    BlinkerHandle = osThreadNew(blinker, NULL, &Blinker_attributes);
    SCDHandle = osThreadNew(sensor1, NULL, &SCD_attributes);
 
-    osKernelStart();
+    osKernelStart();   // start FreeRTOS kernel and OS takes over by running tasks
 
     while (1)
     {
-
 
     }
 
@@ -160,14 +150,12 @@ void SystemClock_Config(void)
 	  {
 	    Error_Handler();
 	  }
-
 	  /** Activate the Over-Drive mode
 	  */
 	  if (HAL_PWREx_EnableOverDrive() != HAL_OK)
 	  {
 	    Error_Handler();
 	  }
-
 	  /** Initializes the CPU, AHB and APB buses clocks
 	  */
 	  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
@@ -191,13 +179,6 @@ void SystemClock_Config(void)
 static void MX_I2C1_Init(void)
 {
 
-  /* USER CODE BEGIN I2C1_Init 0 */
-
-  /* USER CODE END I2C1_Init 0 */
-
-  /* USER CODE BEGIN I2C1_Init 1 */
-
-  /* USER CODE END I2C1_Init 1 */
   hi2c1.Instance = I2C1;
   hi2c1.Init.Timing = 0x600030D;
   hi2c1.Init.OwnAddress1 = 0;
@@ -211,22 +192,18 @@ static void MX_I2C1_Init(void)
   {
     Error_Handler();
   }
-
-  /** Configure Analogue filter
-  */
+  /** Configure Analogue filter */
   if (HAL_I2CEx_ConfigAnalogFilter(&hi2c1, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
   {
     Error_Handler();
   }
 
-  /** Configure Digital filter
-  */
+  /** Configure Digital filter */
   if (HAL_I2CEx_ConfigDigitalFilter(&hi2c1, 0) != HAL_OK)
   {
     Error_Handler();
   }
 }
-
 /**
   * @brief ETH Initialization Function
   * @param None
@@ -235,7 +212,7 @@ static void MX_I2C1_Init(void)
 static void MX_ETH_Init(void)
 {
 
-   static uint8_t MACAddr[6];
+   static uint8_t MACAddr[6];  // setting MAC address for the given hardware (development board Nucleo f7)
 
   heth.Instance = ETH;
   MACAddr[0] = 0x00;
@@ -245,16 +222,18 @@ static void MX_ETH_Init(void)
   MACAddr[4] = 0x00;
   MACAddr[5] = 0x00;
   heth.Init.MACAddr = &MACAddr[0];
-  heth.Init.MediaInterface = HAL_ETH_RMII_MODE;
-  heth.Init.TxDesc = DMATxDscrTab;
+  heth.Init.MediaInterface = HAL_ETH_RMII_MODE;  // Setting the Ethernet mode to Reduced Media-Independent Interface
+  heth.Init.TxDesc = DMATxDscrTab;  			 // Setting address for transmit and receive buffers
   heth.Init.RxDesc = DMARxDscrTab;
   heth.Init.RxBuffLen = 0;
 
+  // Error handler if HAL status returns something other then an OK message
   if (HAL_ETH_Init(&heth) != HAL_OK)
   {
     Error_Handler();
   }
 
+  // Allocating memory and setting up registers for Transmit packet configurations
   memset(&TxConfig, 0 , sizeof(ETH_TxPacketConfig));
   TxConfig.Attributes = ETH_TX_PACKETS_FEATURES_CSUM | ETH_TX_PACKETS_FEATURES_CRCPAD;
   TxConfig.ChecksumCtrl = ETH_CHECKSUM_IPHDR_PAYLOAD_INSERT_PHDR_CALC;
@@ -299,39 +278,6 @@ static void MX_USART3_UART_Init(void)
 
 }
 
-/**
-  * @brief USB_OTG_FS Initialization Function
-  * @param None
-  * @retval None
-  */
-//static void MX_USB_OTG_FS_PCD_Init(void)
-//{
-//
-//  hpcd_USB_OTG_FS.Instance = USB_OTG_FS;
-//  hpcd_USB_OTG_FS.Init.dev_endpoints = 6;
-//  hpcd_USB_OTG_FS.Init.speed = PCD_SPEED_FULL;
-//  hpcd_USB_OTG_FS.Init.dma_enable = DISABLE;
-//  hpcd_USB_OTG_FS.Init.phy_itface = PCD_PHY_EMBEDDED;
-//  hpcd_USB_OTG_FS.Init.Sof_enable = ENABLE;
-//  hpcd_USB_OTG_FS.Init.low_power_enable = DISABLE;
-//  hpcd_USB_OTG_FS.Init.lpm_enable = DISABLE;
-//  hpcd_USB_OTG_FS.Init.vbus_sensing_enable = ENABLE;
-//  hpcd_USB_OTG_FS.Init.use_dedicated_ep1 = DISABLE;
-//  if (HAL_PCD_Init(&hpcd_USB_OTG_FS) != HAL_OK)
-//  {
-//    Error_Handler();
-//  }
-//  /* USER CODE BEGIN USB_OTG_FS_Init 2 */
-//
-//  /* USER CODE END USB_OTG_FS_Init 2 */
-//
-//}
-
-/**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
@@ -399,6 +345,15 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   }
 }
 
+
+/***************************************************************
+ * A function that utilizes the on-board random number
+ * generator to create random buffers for Mongoose usage.
+ * Certain network operations that happen behind the scenes
+ * that need different initializations upon reset get directed
+ * to this function. Mongoose knows to use this by defining
+ * MG_ENABLE_CUSTOM_RANDOM as 1 in mongoose_custom.h
+ ***************************************************************/
 void mg_random(void *buf, size_t len) {  // Use on-board RNG
   extern RNG_HandleTypeDef hrng;
   for (size_t n = 0; n < len; n += sizeof(uint32_t)) {
@@ -408,13 +363,22 @@ void mg_random(void *buf, size_t len) {  // Use on-board RNG
   }
 }
 
+
+/*************************************************************
+ * The timer_fn function is a callback that is linked to a
+ * software timer that gets initialized in server TASK. The
+ * timer is polled upon mg_mgr_poll() call and this
+ * function called once the timer expires. Resets after
+ * expiration.
+ *************************************************************/
 static void timer_fn(void *arg) {
-  struct mg_tcpip_if *ifp = arg;                  // And show
+  struct mg_tcpip_if *ifp = arg;  	// passes in the network structure so we can display network stats
   const char *names[] = {"down", "up", "req", "ready"};  // network stats
-  MG_INFO(("Ethernet: %s, IP: %M, rx:%u, tx:%u, dr:%u, er:%u",
+  MG_INFO(("Ethernet: %s, IP: %M, rx:%u, tx:%u, dr:%u, er:%u", // Function that is used to write to our LOG
            names[ifp->state], mg_print_ip4, &ifp->ip, ifp->nrecv, ifp->nsent,
            ifp->ndrop, ifp->nerr));
 }
+
 
 static double calcTemp(uint8_t highByte, uint8_t lowByte) {
 	uint32_t word = (highByte << 8) | (lowByte);
@@ -440,11 +404,7 @@ void sensor1(void *argument) {
 
 	status = HAL_I2C_Master_Transmit(&hi2c1, SCD40_ADDR << 1, data_buf, sizeof(data_buf), 500);
 	for(;;){
-		//status = HAL_I2C_Mem_Write(&hi2c1, SCD40_ADDR << 1, 0x21b1, 2, 0, 0, 5000);
 		HAL_Delay(5000);
-		//status = HAL_I2C_Mem_Write(&hi2c1, SCD40_ADDR << 1, 0xec05, 2, 0, 0, 5000);
-		//status = HAL_I2C_Master_Receive(&hi2c1, SCD40_ADDR << 1, read_buf, 9, 500);
-
 		status = HAL_I2C_Mem_Read(&hi2c1, SCD40_ADDR << 1, 0xec05, 2, read_buf, sizeof(read_buf), 5000);
 		Carb = (read_buf[0] << 8) | (read_buf[1]);
 		Temp = calcTemp(read_buf[3], read_buf[4]);
@@ -458,30 +418,22 @@ void sensor1(void *argument) {
 
 
 
-//void blinker(void *argument) {
-//	for (;;) {
-//	    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);  // Blink On-board blue LED
-//	    osDelay((osKernelGetTickFreq() * BLINK_PERIOD_MS) / 1000U);
-//
-//	}
-//	(void) argument;
-//}
 
 /***********************************************
- * Event Handler for HTTP connection:		   *
- * 	accepts the HTTP requests and feeds sensor *
- * 	values back in JSON format for the client  *
- * 	to receive then the javascript code takes  *
- *  over and displays the values on our UI.    *
+ * Event Handler for HTTP connection:
+ * 	accepts the HTTP requests and feeds sensor
+ * 	values back in JSON format for the client
+ * 	to receive then the javascript code takes
+ *  over and displays the values on our UI.
  ***********************************************/
 static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
 
-
+	// polling for a an HTTP message being sent to the IP address and port we are listening on
 	if (ev == MG_EV_HTTP_MSG) {
-		struct mg_http_message *hm = (struct mg_http_message *) ev_data;
-		if (mg_http_match_uri(hm, "/api/dispAQI")){
-			mg_http_reply(c, 200, "Content-Type: application/json\r\n",
-					"{%m:%f}\n", MG_ESC("aqi"), aqi);
+		struct mg_http_message *hm = (struct mg_http_message *) ev_data;  // structure of message received including contents
+		if (mg_http_match_uri(hm, "/api/dispAQI")){						  // Function that checks the message for an API call sent by the client
+			mg_http_reply(c, 200, "Content-Type: application/json\r\n",   // replies with the data that the HTTP request message is asking for
+					"{%m:%f}\n", MG_ESC("aqi"), aqi);					  // printf() format as well as structures teh message into a HTTP Post
 		}
 		if(mg_http_match_uri(hm, "/api/AQI")){
 			struct mg_str json = hm -> body;
@@ -498,41 +450,51 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
 		}
 		MG_INFO(("connection established"));
 	    struct mg_http_serve_opts opts = {
-	        .root_dir = "/web_root",
+	        .root_dir = "/web_root",					// Showing mongoose which directory our CSS, HTML, and javascript code are stored
 	        .fs = &mg_fs_packed
 	      };
-	    mg_http_serve_dir(c, ev_data, &opts);
+	    mg_http_serve_dir(c, ev_data, &opts);			// refreshes UI page with new information provided by our HTTP post messages
 	  }
 	  (void) fn_data;
 }
 
+
+/*********************************************************************
+ * Server TASK - initializes the mongoose server and event handler.
+ * Also sets up the network stack for TCP integration and gives
+ * low level driver for the NUCLEO F7 board so that the mongoose
+ * structure uses the built in TCP/IP stack. The Server TASK
+ * runs the initializations once and then stays in the mg_mgr_poll
+ * function which is periodically calling a function that services
+ * the HTTP messages coming from the Network.
+ **********************************************************************/
 void server(void *argument)
 {
 	Pm = 2;
 
 	struct mg_mgr mgr;        // Initialise Mongoose event manager
 	mg_mgr_init(&mgr);        // and attach it to the interface
-	mg_log_set(MG_LL_DEBUG);  // Set log level
+	mg_log_set(MG_LL_DEBUG);  // Set log level - Makes it so we can print errors, info, and DEBUG messages to the LOG
 
-		// Initialise Mongoose network stack
+	  	  	  	  	  	  	  // Initialise Mongoose network stack
 	  struct mg_tcpip_driver_stm32_data driver_data = {.mdc_cr = 4};
-	  struct mg_tcpip_if mif = {.mac = GENERATE_LOCALLY_ADMINISTERED_MAC(),
-		                          .driver = &mg_tcpip_driver_stm32,
-		                          .driver_data = &driver_data};
+	  struct mg_tcpip_if mif = {.mac = GENERATE_LOCALLY_ADMINISTERED_MAC(), // gives the network structure our MAC address for NUCLEO F7 board
+		                        .driver = &mg_tcpip_driver_stm32,
+		                        .driver_data = &driver_data};
 		mg_tcpip_init(&mgr, &mif);
-		mg_timer_add(&mgr, BLINK_PERIOD_MS, MG_TIMER_REPEAT, timer_fn, &mif);
+		mg_timer_add(&mgr, BLINK_PERIOD_MS, MG_TIMER_REPEAT, timer_fn, &mif);  // Add timer function for logging network stats
 		MG_INFO(("MAC: %M. Waiting for IP...", mg_print_mac, mif.mac));
-		while (mif.state != MG_TCPIP_STATE_READY) {
-		    mg_mgr_poll(&mgr, 0);
-		}
+//		while (mif.state != MG_TCPIP_STATE_READY) {
+//		    mg_mgr_poll(&mgr, 0);
+//		}
 
 		MG_INFO(("Initialising application..."));
-		mg_http_listen(&mgr, HTTP_URL, fn, &mgr);
-		mg_http_listen(&mgr, HTTPS_URL, fn, &mgr);
+		mg_http_listen(&mgr, HTTP_URL, fn, &mgr);  //Sets up the server to listen on a specific IP address and port.
+//		mg_http_listen(&mgr, HTTPS_URL, fn, &mgr);
 		for (;;) {
-			mg_mgr_poll(&mgr, 1);
+			mg_mgr_poll(&mgr, 1);               // Polling function for our server manager
 		}
-		mg_mgr_free(&mgr);
+		mg_mgr_free(&mgr);						// shuts down server and frees up IP address on subnet
 	   (void) argument;
 }
 
