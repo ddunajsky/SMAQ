@@ -9,28 +9,32 @@
         <link rel="stylesheet" href="styles.css">
 </head>
 <body>   
-<div class="container">
-    <div class="sensor">
-        <h2>Temperature</h2>
-        <p class="sensor-value" id="temperature">--</p>
+    <div class="container">
+        <div class="sensor">
+            <h2>Temperature</h2>
+            <p class="sensor-value" id="temperature">--</p>
+        </div>
+        <div class="sensor">
+            <h2>Humidity</h2>
+            <p class="sensor-value" id="humidity">--</p>
+        </div>
+        <div class="sensor">
+            <h2>Particle Matter 2.5</h2>
+            <p class="sensor-value" id="pm25">--</p>
+        </div>
+        <div class="sensor">
+            <h2>CO2</h2>
+            <p class="sensor-value" id="co2">--</p>
+        </div>
+        <div class="sensor">
+            <h2>AQI</h2>
+            <p class="sensor-value" id="aqi">--</p>
+        </div>
+        <div class="sensor">
+            <h2>Health</h2>
+            <p class="sensor-value" id="health_level">--</p>
+        </div>
     </div>
-    <div class="sensor">
-        <h2>Humidity</h2>
-        <p class="sensor-value" id="humidity">--</p>
-    </div>
-    <div class="sensor">
-        <h2>Particle Matter 2.5</h2>
-        <p class="sensor-value" id="pm25">--</p>
-    </div>
-    <div class="sensor">
-        <h2>CO2</h2>
-        <p class="sensor-value" id="co2">--</p>
-    </div>
-    <div class="sensor">
-        <h2>AQI</h2>
-        <p class="sensor-value" id="aqi">--</p>
-    </div>
-</div>
         
         <script> 
         // Function to update sensor values with random numbers
@@ -52,8 +56,10 @@
             fetch('/api/dispAQI')
             .then(r => r.json())
             .then(data => {
-            var aqiValue = data.aqi;
-            document.getElementById("aqi").textContent = aqiValue;
+                var aqiValue = data.aqi;
+                var aqiHealth = data.health_level;
+                document.getElementById("aqi").textContent = aqiValue;
+                document.getElementById("health_level").textContent = aqiHealth;
             })
         }
 
