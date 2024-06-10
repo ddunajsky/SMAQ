@@ -118,6 +118,10 @@ void Error_Handler(void);
 #define LD2_Pin GPIO_PIN_7
 #define LD2_GPIO_Port GPIOB
 
+// relay
+#define Relay_Control_Pin_Pin GPIO_PIN_13
+#define Relay_Control_Pin_GPIO_Port GPIOF
+
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

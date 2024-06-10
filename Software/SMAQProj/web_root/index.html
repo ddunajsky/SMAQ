@@ -57,7 +57,7 @@
             .then(r => r.json())
             .then(data => {
                 var aqiValue = data.aqi;
-                var aqiHealth = data.health_level;
+                var aqiHealth = String(data.health_level);
                 document.getElementById("aqi").textContent = aqiValue;
                 document.getElementById("health_level").textContent = aqiHealth;
             })

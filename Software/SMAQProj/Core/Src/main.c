@@ -106,19 +106,19 @@ void server(void *argument);
 //void blinker(void *argument);
 void sensor1(void *argument);
 
-static double Temp;  //temperature readings from SCD-40-2
-static double Hum;  // Humidity readings from SCD-40-2
-static uint32_t Carb; // C02 readings from SCD-40-2
+static double Temp = 25;  //temperature readings from SCD-40-2
+static double Hum = 55;  // Humidity readings from SCD-40-2
+static uint32_t Carb = 1100; // C02 readings from SCD-40-2
 static uint32_t Pm;  // PM 2.5 readings from SNJGAC5
 static uint32_t Pm_Table[20];
-static uint32_t Pm_Avg;
+static double Pm_Avg;
 static double aqi = 0;
-//static char *str;
+static char *health_level;
 int main(void){
 
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-    HAL_Init();
+  	HAL_Init();
 
   /* Configure the system clock */
     SystemClock_Config();
@@ -385,12 +385,16 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOG_CLK_ENABLE();
+  __HAL_RCC_GPIOF_CLK_ENABLE(); // relay
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, LD1_Pin|LD3_Pin|LD2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(USB_PowerSwitchOn_GPIO_Port, USB_PowerSwitchOn_Pin, GPIO_PIN_RESET);
+
+  /*Relay: Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(Relay_Control_Pin_GPIO_Port, Relay_Control_Pin_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : USER_Btn_Pin */
   GPIO_InitStruct.Pin = USER_Btn_Pin;
@@ -404,6 +408,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : Relay_Control_Pin_Pin */
+  GPIO_InitStruct.Pin = Relay_Control_Pin_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(Relay_Control_Pin_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : USB_PowerSwitchOn_Pin */
   GPIO_InitStruct.Pin = USB_PowerSwitchOn_Pin;
@@ -477,12 +488,12 @@ static uint32_t calcParticle(uint8_t highByte, uint8_t lowByte) {
 	return word;
 }
 
-static uint32_t calcAvg(uint32_t Table[20]){
-	uint32_t val = 0;
+static double calcAvg(uint32_t Table[20]){
+	double val = 0;
 	for(uint32_t i = 0; i < 20; i++){
-		val = Table[i] + val;
+		val = ((double) Table[i]) + val;
 	}
-	val = val/20;
+	val = val/20000;
 	return val;
 }
 
@@ -552,17 +563,18 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
 		struct mg_http_message *hm = (struct mg_http_message *) ev_data;
 		if (mg_http_match_uri(hm, "/api/dispAQI")){
 			mg_http_reply(c, 200, "Content-Type: application/json\r\n",
-					"{%m:%f}\n", MG_ESC("aqi"), aqi);
+					"{%m:%f,%m:%m}\n", MG_ESC("aqi"), aqi,
+									 MG_ESC("health_level"), MG_ESC(health_level));
 		}
 		if(mg_http_match_uri(hm, "/api/AQI")){
 			struct mg_str json = hm -> body;
 			mg_json_get_num(json, "$.aqi", &aqi);
-//			str = mg_json_get_str(json, "&.health_level");
+			health_level = mg_json_get_str(json, "$.health_level");
 			mg_http_reply(c, 200, NULL, NULL);
 		}
 		if(mg_http_match_uri(hm, "/api/sensors")){
 			mg_http_reply(c, 200, "Content-Type: application/json\r\n",
-					"{%m:%.2f,%m:%.2f,%m:%u,%m:%u}\n", MG_ESC("temperature"), Temp,
+					"{%m:%.2f,%m:%.2f,%m:%lf,%m:%u}\n", MG_ESC("temperature"), Temp,
 												   MG_ESC("humidity"), Hum,
 												   MG_ESC("pm25"), Pm_Avg,
 												   MG_ESC("co2"), Carb);
